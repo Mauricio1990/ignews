@@ -11,36 +11,35 @@ export default NextAuth({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
     }),
-  ],
-  jwt: {
-    async encode(params: {
-      token: JWT
-      secret: string
-      maxAge: number
-    }): Promise<string> {
-      // return a custom encoded JWT string
-      return process.env.SIGNING_KEY
-    },
-    async decode(params: {
-      token: string
-      secret: string
-    }): Promise<JWT | null> {
-      // return a `JWT` object, or `null` if decoding failed
-      return {}
-    },
-  },
+  ],    
   callbacks: {
     async signIn(params) {
       try {
         await fauna.query(
-          q.Create(
-            q.Collection('users')
-            , { data: { email: params.user.email } }
+          q.If(
+            q.Not(
+              q.Exists(
+                q.Match(
+                  q.Index('user_by_email'),
+                  q.Casefold(params.user.email)
+                )
+              )
+            ),
+            q.Create(
+              q.Collection('users')
+              , { data: { email: params.user.email } }
+            ),
+            q.Exists(
+              q.Match(
+                q.Index('user_by_email'),
+                q.Casefold(params.user.email)
+              )
+            )
           )
         )
         return true;
       } catch {
-        return true;
+        return false;
       }
     },
   },
